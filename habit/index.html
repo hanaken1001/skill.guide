@@ -23,8 +23,10 @@
     --accent-weak: #8d847826;
     --shadow: 0 6px 20px rgba(40, 30, 20, .07);
     --body: #e0703a;
-    --life: #3aa57a;
-    --mind: #6b6fd0;
+    --link: #d9577f;
+    --work: #3a7bd5;
+    --free: #23a08a;
+    --hobby: #9466cc;
   }
   @media (prefers-color-scheme: dark) {
     :root {
@@ -95,12 +97,26 @@
   .total b { font-size: 24px; color: var(--ink); margin: 0 2px; }
   .next { font-size: 12px; color: var(--muted); }
 
-  .pillars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 14px; }
-  .pillar { background: var(--bg); border-radius: 12px; padding: 8px 6px; }
-  .pillar .k { font-size: 12px; font-weight: 700; }
+  .pillars { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; margin-top: 14px; }
+  .pillar { background: var(--bg); border-radius: 12px; padding: 8px 2px; }
+  .pillar .k { font-size: 11px; font-weight: 700; white-space: nowrap; }
+  .pillar .k .e { display: block; font-size: 18px; }
   .pillar .v { font-size: 18px; font-weight: 800; }
   .pillar .bar2 { height: 5px; border-radius: 3px; background: var(--line); margin-top: 4px; overflow: hidden; }
   .pillar .bar2 i { display: block; height: 100%; border-radius: 3px; }
+
+  /* ===== 目標 ===== */
+  .goals { margin-top: 12px; }
+  .goals .gt { font-size: 13px; font-weight: 700; margin-bottom: 6px; }
+  .goal { display: flex; gap: 10px; align-items: flex-start; padding: 7px 0; border-top: 1px solid var(--line); }
+  .goal:first-of-type { border-top: 0; }
+  .goal .gk { flex: 0 0 auto; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 99px; color: #fff; }
+  .goal .gv { font-size: 14px; flex: 1; }
+  .goal .gv.none { color: var(--muted); font-size: 12px; }
+  .group-goal { font-size: 12px; color: var(--muted); margin: -4px 4px 6px 20px; }
+  .goal-edit { display: grid; gap: 8px; }
+  .goal-edit label { font-size: 13px; font-weight: 700; display: block; margin-bottom: 2px; }
+  .goal-edit input { width: 100%; }
 
   /* ===== Day navigation ===== */
   .daynav { display: flex; align-items: center; justify-content: space-between; margin: 20px 4px 10px; }
@@ -250,6 +266,8 @@
       <div class="pillars" id="pillars"></div>
     </div>
 
+    <div class="card goals" id="goals"></div>
+
     <div class="daynav">
       <button class="navbtn" id="prevDay" aria-label="前の日">◀</button>
       <div class="label"><span id="dayLabel">今日</span><span class="sub" id="dayDate"></span></div>
@@ -295,6 +313,12 @@
       </div>
       <p class="small">登録した言葉の中から、毎日ひとつが「今日」の画面のいちばん上に出ます。</p>
       <div id="quoteList"></div>
+    </div>
+
+    <h2>カテゴリーごとの目標</h2>
+    <div class="card">
+      <div class="goal-edit" id="goalEdit"></div>
+      <p class="small" style="margin-bottom:0">書いた目標は「今日」の画面に表示されます。空欄のままでもOKです。</p>
     </div>
 
     <h2>わたしが目指す姿</h2>
@@ -363,9 +387,11 @@
 
   // 習慣の3つの柱
   const CATS = {
-    body: { name: 'からだ', emoji: '💪', color: 'var(--body)' },
-    life: { name: '暮らし', emoji: '🍳', color: 'var(--life)' },
-    mind: { name: 'こころ', emoji: '🧠', color: 'var(--mind)' },
+    body:  { name: 'からだ',   emoji: '💪', color: 'var(--body)',  hint: '例：腹筋を6つに割る' },
+    link:  { name: 'つながり', emoji: '🤝', color: 'var(--link)',  hint: '例：大切な人と月1回ゆっくり話す' },
+    work:  { name: '仕事',     emoji: '💐', color: 'var(--work)',  hint: '例：お客さんに選ばれる花屋になる' },
+    free:  { name: '自由',     emoji: '🕊️', color: 'var(--free)',  hint: '例：自分のための時間を毎日つくる' },
+    hobby: { name: '趣味',     emoji: '🎨', color: 'var(--hobby)', hint: '例：好きなことに週2回没頭する' },
   };
   const CAT_KEYS = Object.keys(CATS);
 
@@ -388,14 +414,12 @@
 
   const DEFAULT_HABITS = [
     ['💪', '腹筋・筋トレ5分', 'body'],
-    ['🧘', 'ストレッチ', 'body'],
-    ['💧', '水をコップ1杯飲む', 'body'],
-    ['🍳', '自分でご飯を作る', 'life'],
-    ['🥗', '野菜を食べる', 'life'],
-    ['🧹', '部屋を5分片付ける', 'life'],
-    ['☀️', '決めた時間に起きる', 'mind'],
-    ['📵', '寝る前30分スマホを置く', 'mind'],
-    ['🌙', '日付が変わる前に寝る', 'mind'],
+    ['🍳', '自分でご飯を作る', 'body'],
+    ['🌙', '日付が変わる前に寝る', 'body'],
+    ['💬', '大切な人に連絡する', 'link'],
+    ['📝', '明日の段取りを書き出す', 'work'],
+    ['🕊️', '自分のための時間を15分つくる', 'free'],
+    ['🎨', '好きなことを10分やる', 'hobby'],
   ];
 
   const uid = () => Math.random().toString(36).slice(2, 10);
@@ -408,12 +432,15 @@
       lastLevel: 0,
       vision: '',
       quotes: [],
+      goals: {},
       quoteBy: '青木仁志',
     };
   }
   function normalize(s) {
     s = { ...fresh(), ...s, habits: s.habits, log: s.log };
-    s.habits.forEach(h => { if (!CATS[h.cat]) h.cat = 'life'; });
+    // 以前の「暮らし」「こころ」などは、いったん「からだ」に入れる（設定で変更できる）
+    s.habits.forEach(h => { if (!CATS[h.cat]) h.cat = 'body'; });
+    if (!s.goals || typeof s.goals !== 'object') s.goals = {};
     if (!Array.isArray(s.quotes)) s.quotes = [];
     return s;
   }
@@ -447,10 +474,10 @@
   const total = () => Object.values(state.log).reduce((a, l) => a + l.length, 0);
   const habitById = id => state.habits.find(h => h.id === id);
   function catTotals() {
-    const t = { body: 0, life: 0, mind: 0 };
+    const t = Object.fromEntries(CAT_KEYS.map(k => [k, 0]));
     Object.values(state.log).forEach(l => l.forEach(id => {
       const h = habitById(id);
-      t[h && CATS[h.cat] ? h.cat : 'life']++;
+      t[h && CATS[h.cat] ? h.cat : 'body']++;
     }));
     return t;
   }
@@ -487,10 +514,17 @@
     const mx = Math.max(1, ...Object.values(ct));
     $('pillars').innerHTML = CAT_KEYS.map(k => `
       <div class="pillar">
-        <div class="k" style="color:${CATS[k].color}">${CATS[k].emoji} ${CATS[k].name}</div>
+        <div class="k" style="color:${CATS[k].color}"><span class="e">${CATS[k].emoji}</span>${CATS[k].name}</div>
         <div class="v">${ct[k]}</div>
         <div class="bar2"><i style="width:${ct[k] / mx * 100}%;background:${CATS[k].color}"></i></div>
       </div>`).join('');
+
+    const goals = state.goals || {};
+    const hasAny = CAT_KEYS.some(k => (goals[k] || '').trim());
+    $('goals').innerHTML = `<div class="gt">🎯 わたしの目標</div>` + (hasAny
+      ? CAT_KEYS.map(k => `<div class="goal"><span class="gk" style="background:${CATS[k].color}">${CATS[k].emoji} ${CATS[k].name}</span>
+          <span class="gv ${(goals[k] || '').trim() ? '' : 'none'}">${(goals[k] || '').trim() ? esc(goals[k].trim()) : '未設定'}</span></div>`).join('')
+      : `<div class="small">設定の「カテゴリーごとの目標」に書くと、ここに表示されます。</div>`);
   }
 
   function renderToday() {
@@ -511,8 +545,10 @@
     CAT_KEYS.forEach(k => {
       const items = list.filter(h => h.cat === k);
       if (!items.length) return;
+      const goal = ((state.goals || {})[k] || '').trim();
       box.insertAdjacentHTML('beforeend',
-        `<div class="group"><span class="dot" style="background:${CATS[k].color}"></span>${CATS[k].emoji} ${CATS[k].name}</div>`);
+        `<div class="group"><span class="dot" style="background:${CATS[k].color}"></span>${CATS[k].emoji} ${CATS[k].name}</div>` +
+        (goal ? `<div class="group-goal">🎯 ${esc(goal)}</div>` : ''));
       const g = document.createElement('div');
       g.className = 'habits';
       items.forEach(h => {
@@ -668,6 +704,19 @@
       box.appendChild(p);
     }
     if (!$('newCat').options.length) $('newCat').innerHTML = catOptions('body');
+    const ge = $('goalEdit');
+    if (!ge.children.length) {
+      ge.innerHTML = CAT_KEYS.map(k => `<div><label style="color:${CATS[k].color}">${CATS[k].emoji} ${CATS[k].name}</label>
+        <input data-goal="${k}" maxlength="60" placeholder="${CATS[k].hint}"></div>`).join('');
+      ge.querySelectorAll('input').forEach(inp => inp.addEventListener('input', e => {
+        state.goals = state.goals || {};
+        state.goals[e.target.dataset.goal] = e.target.value;
+        save(); renderHero(); renderToday();
+      }));
+    }
+    ge.querySelectorAll('input').forEach(inp => {
+      if (document.activeElement !== inp) inp.value = (state.goals || {})[inp.dataset.goal] || '';
+    });
     const sel = $('dayStart');
     if (!sel.options.length) {
       for (let hr = 0; hr <= 6; hr++) sel.add(new Option(hr === 0 ? '0時（夜中の12時）' : `朝${hr}時`, hr));
