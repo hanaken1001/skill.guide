@@ -1,11 +1,11 @@
 {
-  "name": "花習慣",
-  "short_name": "花習慣",
+  "name": "じぶんレベル",
+  "short_name": "じぶんレベル",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
-  "background_color": "#f7f4ef",
-  "theme_color": "#f7f4ef",
+  "background_color": "#f6f4f0",
+  "theme_color": "#f6f4f0",
   "icons": [
     { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
     { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" }
