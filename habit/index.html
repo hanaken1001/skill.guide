@@ -305,7 +305,8 @@
 
     <h2>バックアップ</h2>
     <div class="card">
-      <p class="small" style="margin-top:0">記録はこのiPhoneの中だけに保存されます。機種変更に備えて、ときどきバックアップを保存しておくと安心です。</p>
+      <p class="small" style="margin-top:0">記録はこのiPhoneの中だけに保存されます。機種変更に備えて、ときどきバックアップを保存しておくと安心です。「バックアップを保存」→「"ファイル"に保存」→「iCloud Drive」を選ぶと、新しいiPhoneからも取り出せます。</p>
+      <p class="small" id="lastBackup"></p>
       <div class="btns">
         <button class="btn" id="exportBtn">バックアップを保存</button>
         <button class="btn" id="importBtn">バックアップから復元</button>
@@ -646,6 +647,9 @@
       for (let hr = 0; hr <= 6; hr++) sel.add(new Option(hr === 0 ? '0時（夜中の12時）' : `朝${hr}時`, hr));
     }
     sel.value = state.dayStart;
+    $('lastBackup').textContent = state.lastBackup
+      ? `前回のバックアップ：${state.lastBackup.replace(/-/g, '/')}`
+      : 'まだバックアップしていません。';
   }
 
   function renderAll() { renderHero(); renderToday(); renderRecord(); renderSettings(); }
@@ -673,13 +677,27 @@
     save(); renderAll();
   };
 
-  $('exportBtn').onclick = () => {
-    const blob = new Blob([JSON.stringify(state, null, 1)], { type: 'application/json' });
+  $('exportBtn').onclick = async () => {
+    const name = `jibun-level-${todayKey()}.json`;
+    const text = JSON.stringify(state, null, 1);
+    const done = () => { state.lastBackup = keyOf(new Date()); save(); renderSettings(); };
+    // iPhoneでは共有シートから「"ファイル"に保存」を選べるようにする
+    try {
+      const file = new File([text], name, { type: 'application/json' });
+      if (navigator.canShare && navigator.canShare({ files: [file] })) {
+        await navigator.share({ files: [file], title: 'じぶんレベルのバックアップ' });
+        done();
+        return;
+      }
+    } catch (err) {
+      if (err && err.name === 'AbortError') return; // キャンセルされた
+    }
     const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `jibun-level-${todayKey()}.json`;
+    a.href = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
+    a.download = name;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    done();
   };
   $('importBtn').onclick = () => $('importFile').click();
   $('importFile').onchange = async e => {
