@@ -58,6 +58,17 @@
   }
 
   /* ===== Hero (level + identity) ===== */
+  /* ===== 今日の言葉 ===== */
+  .quote { margin-bottom: 12px; padding: 16px 18px 14px; border-left: 4px solid var(--accent); }
+  .quote .lbl { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: .1em; }
+  .quote .txt { font-size: 17px; font-weight: 700; line-height: 1.6; margin: 6px 0 4px; white-space: pre-wrap; }
+  .quote .by { font-size: 12px; color: var(--muted); text-align: right; }
+  .quote .foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+  .quote .more { border: 0; background: none; color: var(--muted); font-size: 12px; padding: 4px 0; }
+  .quote.empty .txt { font-size: 13px; font-weight: 400; color: var(--muted); }
+  .qrow .nm { white-space: pre-wrap; font-size: 14px; }
+  .qrow .by { display: block; font-size: 11px; color: var(--muted); }
+
   .hero { text-align: center; padding: 20px 16px 16px; position: relative; overflow: hidden; }
   .hero::before {
     content: ""; position: absolute; inset: 0;
@@ -221,6 +232,7 @@
 <main>
   <!-- ========== 今日 ========== -->
   <section class="screen active" id="s-today">
+    <div class="card quote" id="quote"></div>
     <div class="card hero">
       <div class="ring">
         <svg viewBox="0 0 100 100">
@@ -274,6 +286,17 @@
 
   <!-- ========== 設定 ========== -->
   <section class="screen" id="s-settings">
+    <h2>今日の言葉</h2>
+    <div class="card">
+      <textarea id="newQuote" rows="3" placeholder="好きな言葉を入力（改行で区切ると、まとめて何個でも登録できます）"></textarea>
+      <div class="add" style="grid-template-columns: 1fr auto">
+        <input id="newQuoteBy" placeholder="だれの言葉？（例：青木仁志）" maxlength="30">
+        <button class="btn primary" id="addQuoteBtn">登録</button>
+      </div>
+      <p class="small">登録した言葉の中から、毎日ひとつが「今日」の画面のいちばん上に出ます。</p>
+      <div id="quoteList"></div>
+    </div>
+
     <h2>わたしが目指す姿</h2>
     <div class="card">
       <textarea id="vision" rows="3" placeholder="例：腹筋が割れていて、毎日ご飯を作って丁寧に暮らしている自分"></textarea>
@@ -384,11 +407,14 @@
       dayStart: 4,
       lastLevel: 0,
       vision: '',
+      quotes: [],
+      quoteBy: '青木仁志',
     };
   }
   function normalize(s) {
     s = { ...fresh(), ...s, habits: s.habits, log: s.log };
     s.habits.forEach(h => { if (!CATS[h.cat]) h.cat = 'life'; });
+    if (!Array.isArray(s.quotes)) s.quotes = [];
     return s;
   }
   function load() {
@@ -652,13 +678,69 @@
       : 'まだバックアップしていません。';
   }
 
-  function renderAll() { renderHero(); renderToday(); renderRecord(); renderSettings(); }
+  // ===== 今日の言葉 =====
+  // 日付から決まる並び順で1周するので、同じ言葉が続きにくい
+  let quoteShift = 0;
+  function quoteIndex(n) {
+    const day = Math.round(fromKey(todayKey()) / 86400000) + quoteShift;
+    const cycle = Math.floor(day / n);
+    let seed = cycle * 9301 + 49297;
+    const rnd = () => (seed = (seed * 9301 + 49297) % 233280) / 233280;
+    const order = [...Array(n).keys()];
+    for (let i = n - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    return order[((day % n) + n) % n];
+  }
+  function renderQuote() {
+    const box = $('quote');
+    const qs = state.quotes || [];
+    if (!qs.length) {
+      box.className = 'card quote empty';
+      box.innerHTML = `<div class="lbl">今日の言葉</div><div class="txt">設定の「今日の言葉」に好きな名言を登録すると、毎日ここにひとつ表示されます。</div>`;
+      return;
+    }
+    const q = qs[quoteIndex(qs.length)];
+    box.className = 'card quote';
+    box.innerHTML = `<div class="lbl">今日の言葉</div><div class="txt">${esc(q.text)}</div>
+      <div class="foot"><button class="more" id="moreQuote">${qs.length > 1 ? '別の言葉を見る ↻' : ''}</button>
+      <div class="by">${q.by ? '— ' + esc(q.by) : ''}</div></div>`;
+    if (qs.length > 1) $('moreQuote').onclick = () => { quoteShift++; renderQuote(); };
+  }
+  function renderQuoteList() {
+    const box = $('quoteList');
+    box.innerHTML = '';
+    (state.quotes || []).forEach((q, i) => {
+      const row = document.createElement('div');
+      row.className = 'row qrow';
+      row.innerHTML = `<span class="nm">${esc(q.text)}<span class="by">${q.by ? '— ' + esc(q.by) : ''}</span></span>
+        <button class="btn mini danger">削除</button>`;
+      row.querySelector('button').onclick = () => {
+        if (!confirm('この言葉を削除しますか？')) return;
+        state.quotes.splice(i, 1); save(); renderQuote(); renderQuoteList();
+      };
+      box.appendChild(row);
+    });
+    if (document.activeElement !== $('newQuoteBy')) $('newQuoteBy').value = state.quoteBy || '';
+  }
+
+  function renderAll() { renderQuote(); renderQuoteList(); renderHero(); renderToday(); renderRecord(); renderSettings(); }
 
   // ===== 操作 =====
   $('prevDay').onclick = () => { viewDay = addDays(viewDay, -1); renderToday(); };
   $('nextDay').onclick = () => { if (viewDay < todayKey()) { viewDay = addDays(viewDay, 1); renderToday(); } };
   $('prevMonth').onclick = () => { viewMonth.setMonth(viewMonth.getMonth() - 1); renderRecord(); };
   $('nextMonth').onclick = () => { viewMonth.setMonth(viewMonth.getMonth() + 1); renderRecord(); };
+
+  $('addQuoteBtn').onclick = () => {
+    const by = $('newQuoteBy').value.trim();
+    const lines = $('newQuote').value.split(/\n/).map(t => t.trim()).filter(Boolean);
+    if (!lines.length) { $('newQuote').focus(); return; }
+    state.quotes = state.quotes || [];
+    lines.forEach(text => state.quotes.push({ text, by }));
+    state.quoteBy = by;
+    $('newQuote').value = '';
+    save(); renderQuote(); renderQuoteList();
+    alert(`${lines.length}個の言葉を登録しました`);
+  };
 
   $('vision').addEventListener('input', e => { state.vision = e.target.value; save(); renderHero(); });
 
