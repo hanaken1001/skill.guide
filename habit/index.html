@@ -1,0 +1,623 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="花習慣">
+<meta name="theme-color" content="#f7f4ef">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-192.png">
+<title>花習慣</title>
+<style>
+  :root {
+    --bg: #f7f4ef;
+    --card: #ffffff;
+    --ink: #2d2a26;
+    --muted: #8a837a;
+    --line: #ebe5dc;
+    --accent: #a1887f;
+    --accent-weak: #efe9e6;
+    --shadow: 0 6px 20px rgba(60, 45, 30, .07);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1a18;
+      --card: #272421;
+      --ink: #f1ece6;
+      --muted: #a39b91;
+      --line: #3a3531;
+      --shadow: none;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; height: 100%; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", sans-serif;
+    line-height: 1.5;
+    padding: env(safe-area-inset-top) 0 calc(76px + env(safe-area-inset-bottom));
+    transition: background .6s;
+  }
+  main { max-width: 520px; margin: 0 auto; padding: 16px; }
+  .screen { display: none; }
+  .screen.active { display: block; }
+  h2 { font-size: 17px; margin: 24px 4px 10px; }
+  .card {
+    background: var(--card);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    padding: 16px;
+    box-shadow: var(--shadow);
+  }
+
+  /* ===== Hero (flower + level) ===== */
+  .hero { text-align: center; padding: 20px 16px 18px; position: relative; overflow: hidden; }
+  .hero::before {
+    content: ""; position: absolute; inset: 0;
+    background: radial-gradient(circle at 50% 35%, var(--accent-weak), transparent 70%);
+    transition: background .6s;
+  }
+  .hero > * { position: relative; }
+  .ring { width: 150px; height: 150px; margin: 0 auto; position: relative; }
+  .ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+  .ring .track { stroke: var(--line); }
+  .ring .bar { stroke: var(--accent); transition: stroke-dashoffset .6s, stroke .6s; }
+  .ring .flower {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-size: 64px;
+  }
+  .ring .flower.pop { animation: pop .5s; }
+  @keyframes pop { 0% { transform: scale(1); } 40% { transform: scale(1.25); } 100% { transform: scale(1); } }
+  .stage-name { font-size: 22px; font-weight: 700; margin-top: 6px; color: var(--accent); transition: color .6s; }
+  .total { font-size: 14px; color: var(--muted); }
+  .total b { font-size: 26px; color: var(--ink); margin: 0 2px; }
+  .next { font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  /* ===== Day navigation ===== */
+  .daynav { display: flex; align-items: center; justify-content: space-between; margin: 20px 4px 10px; }
+  .daynav .label { font-size: 17px; font-weight: 700; }
+  .daynav .sub { font-size: 12px; color: var(--muted); font-weight: 400; margin-left: 6px; }
+  .navbtn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    width: 38px; height: 38px; border-radius: 50%; font-size: 16px;
+  }
+  .navbtn:disabled { opacity: .3; }
+
+  /* ===== Habit list ===== */
+  .habits { display: grid; gap: 10px; }
+  .habit {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--card); border: 1.5px solid var(--line); border-radius: 16px;
+    padding: 14px 16px; font-size: 16px; color: var(--ink); text-align: left; width: 100%;
+    transition: background .2s, border-color .2s, transform .1s;
+  }
+  .habit:active { transform: scale(.98); }
+  .habit .em { font-size: 24px; width: 30px; text-align: center; }
+  .habit .nm { flex: 1; }
+  .habit .ck {
+    width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line);
+    display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff;
+    transition: background .2s, border-color .2s;
+  }
+  .habit.done { border-color: var(--accent); background: var(--accent-weak); }
+  .habit.done .ck { background: var(--accent); border-color: var(--accent); }
+  .daycount { text-align: center; color: var(--muted); font-size: 14px; margin-top: 14px; }
+  .daycount b { color: var(--ink); font-size: 18px; }
+  .cheer { text-align: center; font-size: 13px; color: var(--accent); margin-top: 4px; min-height: 20px; }
+
+  /* ===== Records ===== */
+  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { text-align: center; padding: 12px 6px; }
+  .stat .v { font-size: 22px; font-weight: 700; }
+  .stat .k { font-size: 11px; color: var(--muted); }
+  .cal-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .cal-head b { font-size: 16px; }
+  .cal { display: grid; grid-template-columns: repeat(7, 1fr); gap: 5px; }
+  .cal .dow { font-size: 11px; color: var(--muted); text-align: center; }
+  .cal .d {
+    aspect-ratio: 1; border-radius: 9px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; font-size: 12px; background: var(--line);
+    color: var(--ink); position: relative;
+  }
+  .cal .d .n { font-size: 10px; opacity: .8; }
+  .cal .d.empty { background: transparent; }
+  .cal .d.today { outline: 2px solid var(--ink); outline-offset: 1px; }
+  .legend { display: flex; gap: 4px; align-items: center; justify-content: flex-end; font-size: 11px; color: var(--muted); margin-top: 10px; }
+  .legend i { width: 14px; height: 14px; border-radius: 4px; display: inline-block; }
+  .road { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+  .road .s { text-align: center; padding: 10px 4px; border-radius: 14px; border: 1px solid var(--line); background: var(--card); }
+  .road .s .e { font-size: 28px; }
+  .road .s .t { font-size: 11px; color: var(--muted); }
+  .road .s.locked { opacity: .35; filter: grayscale(1); }
+  .road .s.now { border: 2px solid currentColor; }
+
+  /* ===== Settings ===== */
+  .row { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row .em { font-size: 22px; width: 30px; text-align: center; }
+  .row .nm { flex: 1; }
+  .small { font-size: 12px; color: var(--muted); }
+  .btn {
+    border: 1px solid var(--line); background: var(--card); color: var(--ink);
+    padding: 10px 14px; border-radius: 12px; font-size: 15px;
+  }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn.mini { padding: 6px 10px; font-size: 13px; }
+  .btn.danger { color: #c0392b; }
+  .add { display: flex; gap: 8px; margin-top: 12px; }
+  .add input {
+    flex: 1; min-width: 0; font-size: 16px; padding: 10px 12px; border-radius: 12px;
+    border: 1px solid var(--line); background: var(--bg); color: var(--ink);
+  }
+  .add input.emoji { flex: 0 0 56px; text-align: center; }
+  select {
+    font-size: 16px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--ink);
+  }
+  .btns { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+
+  /* ===== Tab bar ===== */
+  nav {
+    position: fixed; left: 0; right: 0; bottom: 0;
+    background: var(--card); border-top: 1px solid var(--line);
+    display: flex; padding: 6px 0 calc(6px + env(safe-area-inset-bottom));
+  }
+  nav button {
+    flex: 1; background: none; border: 0; color: var(--muted); font-size: 11px;
+    display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0;
+  }
+  nav button .i { font-size: 22px; filter: grayscale(1); opacity: .6; }
+  nav button.active { color: var(--accent); font-weight: 700; }
+  nav button.active .i { filter: none; opacity: 1; }
+
+  /* ===== Level up ===== */
+  .overlay {
+    position: fixed; inset: 0; background: rgba(0, 0, 0, .45); display: none;
+    align-items: center; justify-content: center; z-index: 10; padding: 24px;
+  }
+  .overlay.show { display: flex; }
+  .modal { background: var(--card); border-radius: 24px; padding: 28px 24px; text-align: center; max-width: 340px; width: 100%; animation: rise .4s; }
+  @keyframes rise { from { transform: translateY(30px) scale(.9); opacity: 0; } to { transform: none; opacity: 1; } }
+  .modal .big { font-size: 84px; line-height: 1.1; animation: pop .8s; }
+  .modal h3 { margin: 10px 0 4px; font-size: 22px; color: var(--accent); }
+  .modal p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  .petal { position: fixed; top: -40px; font-size: 26px; z-index: 11; pointer-events: none; animation: fall linear forwards; }
+  @keyframes fall { to { transform: translateY(110vh) rotate(540deg); opacity: .2; } }
+</style>
+</head>
+<body>
+<main>
+  <!-- ========== 今日 ========== -->
+  <section class="screen active" id="s-today">
+    <div class="card hero">
+      <div class="ring">
+        <svg viewBox="0 0 100 100">
+          <circle class="track" cx="50" cy="50" r="44" fill="none" stroke-width="7"/>
+          <circle class="bar" id="ringBar" cx="50" cy="50" r="44" fill="none" stroke-width="7" stroke-linecap="round"
+                  stroke-dasharray="276.46" stroke-dashoffset="276.46"/>
+        </svg>
+        <div class="flower" id="flower">🌰</div>
+      </div>
+      <div class="stage-name" id="stageName">たね</div>
+      <div class="total">これまでの積み上げ <b id="total">0</b> 個</div>
+      <div class="next" id="next">あと10個で「芽」に</div>
+    </div>
+
+    <div class="daynav">
+      <button class="navbtn" id="prevDay" aria-label="前の日">◀</button>
+      <div class="label"><span id="dayLabel">今日</span><span class="sub" id="dayDate"></span></div>
+      <button class="navbtn" id="nextDay" aria-label="次の日">▶</button>
+    </div>
+    <div class="habits" id="habitList"></div>
+    <div class="daycount">この日できたこと <b id="dayCount">0</b> 個</div>
+    <div class="cheer" id="cheer"></div>
+  </section>
+
+  <!-- ========== 記録 ========== -->
+  <section class="screen" id="s-record">
+    <h2>記録</h2>
+    <div class="stats">
+      <div class="card stat"><div class="v" id="stTotal">0</div><div class="k">積み上げ合計</div></div>
+      <div class="card stat"><div class="v" id="stDays">0</div><div class="k">1個以上できた日</div></div>
+      <div class="card stat"><div class="v" id="stWeek">0</div><div class="k">この7日間</div></div>
+    </div>
+
+    <h2>カレンダー</h2>
+    <div class="card">
+      <div class="cal-head">
+        <button class="navbtn" id="prevMonth" aria-label="前の月">◀</button>
+        <b id="monthLabel"></b>
+        <button class="navbtn" id="nextMonth" aria-label="次の月">▶</button>
+      </div>
+      <div class="cal" id="cal"></div>
+      <div class="legend">少ない <i style="background:var(--line)"></i><i class="lg1"></i><i class="lg2"></i><i class="lg3"></i> 多い</div>
+    </div>
+
+    <h2>花の成長ロード（10個ごとに変化）</h2>
+    <div class="road" id="road"></div>
+  </section>
+
+  <!-- ========== 設定 ========== -->
+  <section class="screen" id="s-settings">
+    <h2>習慣のリスト</h2>
+    <div class="card">
+      <div id="habitEdit"></div>
+      <div class="add">
+        <input class="emoji" id="newEmoji" placeholder="🌟" maxlength="4">
+        <input id="newName" placeholder="新しい習慣（例：朝ストレッチ）" maxlength="30">
+        <button class="btn primary" id="addBtn">追加</button>
+      </div>
+      <p class="small">小さすぎるくらいの習慣がおすすめです。「腕立て1回」でもOK。</p>
+    </div>
+
+    <h2>1日の区切り</h2>
+    <div class="card">
+      <div class="row" style="border:0">
+        <div class="nm">日付が変わる時刻</div>
+        <select id="dayStart"></select>
+      </div>
+      <p class="small">夜遅くまで仕事がある日も、この時刻までは「前の日」として記録されます。</p>
+    </div>
+
+    <h2>バックアップ</h2>
+    <div class="card">
+      <p class="small" style="margin-top:0">記録はこのiPhoneの中だけに保存されます。機種変更に備えて、ときどきバックアップを保存しておくと安心です。</p>
+      <div class="btns">
+        <button class="btn" id="exportBtn">バックアップを保存</button>
+        <button class="btn" id="importBtn">バックアップから復元</button>
+        <input type="file" id="importFile" accept="application/json,.json" hidden>
+      </div>
+    </div>
+  </section>
+</main>
+
+<nav>
+  <button class="active" data-tab="s-today"><span class="i">🌱</span>今日</button>
+  <button data-tab="s-record"><span class="i">📅</span>記録</button>
+  <button data-tab="s-settings"><span class="i">⚙️</span>設定</button>
+</nav>
+
+<div class="overlay" id="levelUp">
+  <div class="modal">
+    <div class="big" id="luEmoji">🌱</div>
+    <h3 id="luTitle">レベルアップ！</h3>
+    <p id="luText"></p>
+    <button class="btn primary" id="luClose">やったね</button>
+  </div>
+</div>
+
+<script>
+(() => {
+  'use strict';
+  const KEY = 'hana-habit-v1';
+
+  // 10個ごとに変わる花のステージ
+  const STAGES = [
+    { name: 'たね',         emoji: '🌰', color: '#a1887f' },
+    { name: '芽',           emoji: '🌱', color: '#7cb342' },
+    { name: '双葉',         emoji: '🌿', color: '#43a047' },
+    { name: '四つ葉',       emoji: '🍀', color: '#2e9e6b' },
+    { name: 'チューリップ', emoji: '🌷', color: '#e57399' },
+    { name: 'デイジー',     emoji: '🌼', color: '#e0a800' },
+    { name: 'さくら',       emoji: '🌸', color: '#e88fb0' },
+    { name: 'ハイビスカス', emoji: '🌺', color: '#e05a6d' },
+    { name: 'ひまわり',     emoji: '🌻', color: '#f09819' },
+    { name: 'バラ',         emoji: '🌹', color: '#c62f47' },
+    { name: '花束',         emoji: '💐', color: '#9c5fb5' },
+    { name: '花の名人',     emoji: '👑', color: '#c9962b' },
+  ];
+  const STEP = 10;
+
+  const DEFAULT_HABITS = [
+    ['☀️', '決めた時間に起きる'],
+    ['💧', '水をコップ1杯飲む'],
+    ['🤸', 'ストレッチ or 筋トレ5分'],
+    ['🥗', '野菜を食べる'],
+    ['📵', '寝る前30分スマホを置く'],
+    ['🌙', '日付が変わる前に寝る'],
+  ];
+
+  const uid = () => Math.random().toString(36).slice(2, 10);
+
+  function load() {
+    try {
+      const raw = localStorage.getItem(KEY);
+      if (raw) {
+        const s = JSON.parse(raw);
+        if (s && Array.isArray(s.habits) && s.log) return s;
+      }
+    } catch (e) { /* 読めないときは初期状態 */ }
+    return {
+      habits: DEFAULT_HABITS.map(([emoji, name]) => ({ id: uid(), emoji, name, active: true })),
+      log: {},
+      dayStart: 4,
+      lastLevel: 0,
+    };
+  }
+  let state = load();
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { alert('保存できませんでした'); } };
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
+
+  // ===== 日付まわり =====
+  const pad = n => String(n).padStart(2, '0');
+  const keyOf = d => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const fromKey = k => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+  const addDays = (k, n) => { const d = fromKey(k); d.setDate(d.getDate() + n); return keyOf(d); };
+  const todayKey = () => keyOf(new Date(Date.now() - state.dayStart * 3600 * 1000));
+  const WD = ['日', '月', '火', '水', '木', '金', '土'];
+
+  let viewDay = todayKey();
+  let viewMonth = (() => { const d = fromKey(viewDay); return new Date(d.getFullYear(), d.getMonth(), 1); })();
+
+  // ===== 集計 =====
+  const countOn = k => (state.log[k] || []).length;
+  const total = () => Object.values(state.log).reduce((a, l) => a + l.length, 0);
+  const stageAt = lv => STAGES[Math.min(lv, STAGES.length - 1)];
+  const stageLabel = lv => lv < STAGES.length ? stageAt(lv).name : `花の名人 Lv.${lv - STAGES.length + 2}`;
+
+  // ===== 描画 =====
+  const $ = id => document.getElementById(id);
+
+  function applyTheme(lv) {
+    const c = stageAt(lv).color;
+    const root = document.documentElement.style;
+    root.setProperty('--accent', c);
+    root.setProperty('--accent-weak', c + '26');
+    document.querySelector('meta[name=theme-color]').setAttribute('content', c);
+  }
+
+  function renderHero() {
+    const t = total();
+    const lv = Math.floor(t / STEP);
+    const inLv = t % STEP;
+    applyTheme(lv);
+    $('flower').textContent = stageAt(lv).emoji;
+    $('stageName').textContent = stageLabel(lv);
+    $('total').textContent = t;
+    $('next').textContent = `あと${STEP - inLv}個で「${stageLabel(lv + 1)}」に`;
+    const C = 276.46;
+    $('ringBar').style.strokeDashoffset = C * (1 - inLv / STEP);
+  }
+
+  function renderToday() {
+    const tk = todayKey();
+    const diff = Math.round((fromKey(tk) - fromKey(viewDay)) / 86400000);
+    $('dayLabel').textContent = diff === 0 ? '今日' : diff === 1 ? 'きのう' : diff === 2 ? 'おととい' : `${diff}日前`;
+    const d = fromKey(viewDay);
+    $('dayDate').textContent = `${d.getMonth() + 1}/${d.getDate()}(${WD[d.getDay()]})`;
+    $('nextDay').disabled = diff <= 0;
+    $('prevDay').disabled = diff >= 30;
+
+    const done = new Set(state.log[viewDay] || []);
+    // 今は使っていない習慣でも、その日に記録があれば表示する
+    const list = state.habits.filter(h => h.active || done.has(h.id));
+    const box = $('habitList');
+    box.innerHTML = '';
+    if (!list.length) {
+      box.innerHTML = '<div class="card small">設定タブから習慣を追加してください。</div>';
+    }
+    list.forEach(h => {
+      const b = document.createElement('button');
+      b.className = 'habit' + (done.has(h.id) ? ' done' : '');
+      b.innerHTML = `<span class="em"></span><span class="nm"></span><span class="ck">${done.has(h.id) ? '✓' : ''}</span>`;
+      b.querySelector('.em').textContent = h.emoji || '・';
+      b.querySelector('.nm').textContent = h.name;
+      b.onclick = () => toggle(h.id);
+      box.appendChild(b);
+    });
+    const n = done.size;
+    $('dayCount').textContent = n;
+    $('cheer').textContent = n === 0 ? 'ひとつだけでも大丈夫。' :
+      n === 1 ? 'いいスタート！' :
+      n < list.length ? `${n}個も積み上げました。` : '全部できた日！最高です 🌟';
+  }
+
+  function toggle(id) {
+    const before = Math.floor(total() / STEP);
+    const arr = state.log[viewDay] || [];
+    const i = arr.indexOf(id);
+    if (i >= 0) arr.splice(i, 1); else arr.push(id);
+    if (arr.length) state.log[viewDay] = arr; else delete state.log[viewDay];
+    const after = Math.floor(total() / STEP);
+    if (navigator.vibrate) navigator.vibrate(10);
+    if (after > before && after > (state.lastLevel || 0)) {
+      state.lastLevel = after;
+      save();
+      renderAll();
+      celebrate(after);
+    } else {
+      save();
+      renderAll();
+      if (i < 0) { const f = $('flower'); f.classList.remove('pop'); void f.offsetWidth; f.classList.add('pop'); }
+    }
+  }
+
+  function celebrate(lv) {
+    const s = stageAt(lv);
+    $('luEmoji').textContent = s.emoji;
+    $('luTitle').textContent = `「${stageLabel(lv)}」になりました！`;
+    $('luText').textContent = `積み上げ ${lv * STEP} 個達成。毎日の小さな一歩が、ちゃんと花になっています。`;
+    $('levelUp').classList.add('show');
+    const petals = ['🌸', '🌼', '🌷', '🍃', s.emoji];
+    for (let k = 0; k < 24; k++) {
+      const p = document.createElement('div');
+      p.className = 'petal';
+      p.textContent = petals[k % petals.length];
+      p.style.left = Math.random() * 100 + 'vw';
+      p.style.animationDuration = (2.5 + Math.random() * 2.5) + 's';
+      p.style.animationDelay = (Math.random() * .8) + 's';
+      document.body.appendChild(p);
+      setTimeout(() => p.remove(), 6000);
+    }
+  }
+  $('luClose').onclick = () => $('levelUp').classList.remove('show');
+
+  function renderRecord() {
+    const t = total();
+    $('stTotal').textContent = t;
+    $('stDays').textContent = Object.keys(state.log).filter(k => state.log[k].length).length;
+    let w = 0; const tk = todayKey();
+    for (let i = 0; i < 7; i++) w += countOn(addDays(tk, -i));
+    $('stWeek').textContent = w;
+
+    // カレンダー
+    const y = viewMonth.getFullYear(), m = viewMonth.getMonth();
+    $('monthLabel').textContent = `${y}年${m + 1}月`;
+    const cal = $('cal');
+    cal.innerHTML = WD.map(x => `<div class="dow">${x}</div>`).join('');
+    const first = new Date(y, m, 1).getDay();
+    const days = new Date(y, m + 1, 0).getDate();
+    const max = Math.max(1, state.habits.filter(h => h.active).length);
+    for (let i = 0; i < first; i++) cal.insertAdjacentHTML('beforeend', '<div class="d empty"></div>');
+    for (let d = 1; d <= days; d++) {
+      const k = keyOf(new Date(y, m, d));
+      const n = countOn(k);
+      const r = Math.min(1, n / max);
+      const el = document.createElement('div');
+      el.className = 'd' + (k === tk ? ' today' : '');
+      if (n) {
+        el.style.background = `color-mix(in srgb, var(--accent) ${Math.round(30 + r * 70)}%, transparent)`;
+        if (r > .5) el.style.color = '#fff';
+      }
+      el.innerHTML = `${d}${n ? `<span class="n">${n}</span>` : ''}`;
+      cal.appendChild(el);
+    }
+    document.querySelectorAll('.lg1,.lg2,.lg3').forEach((el, i) => {
+      el.style.background = `color-mix(in srgb, var(--accent) ${[40, 70, 100][i]}%, transparent)`;
+    });
+    const nowM = fromKey(tk);
+    $('nextMonth').disabled = y > nowM.getFullYear() || (y === nowM.getFullYear() && m >= nowM.getMonth());
+
+    // 成長ロード
+    const lv = Math.floor(t / STEP);
+    $('road').innerHTML = STAGES.map((s, i) => {
+      const locked = i > lv ? 'locked' : '';
+      return `<div class="s ${locked} ${i === Math.min(lv, STAGES.length - 1) ? 'now' : ''}" style="color:${s.color}">
+        <div class="e">${s.emoji}</div><div class="t">${s.name}<br>${i * STEP}個〜</div></div>`;
+    }).join('');
+  }
+
+  function renderSettings() {
+    const box = $('habitEdit');
+    box.innerHTML = '';
+    const active = state.habits.filter(h => h.active);
+    if (!active.length) box.innerHTML = '<p class="small">まだ習慣がありません。</p>';
+    active.forEach(h => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      row.innerHTML = `<span class="em"></span><span class="nm"></span>
+        <button class="btn mini" data-a="edit">編集</button>
+        <button class="btn mini danger" data-a="del">外す</button>`;
+      row.querySelector('.em').textContent = h.emoji || '・';
+      row.querySelector('.nm').textContent = h.name;
+      row.querySelector('[data-a=edit]').onclick = () => {
+        const name = prompt('習慣の名前', h.name);
+        if (name === null || !name.trim()) return;
+        const emoji = prompt('絵文字（空欄でもOK）', h.emoji || '');
+        h.name = name.trim();
+        if (emoji !== null) h.emoji = emoji.trim();
+        save(); renderAll();
+      };
+      row.querySelector('[data-a=del]').onclick = () => {
+        if (!confirm(`「${h.name}」をリストから外しますか？\n（これまでの積み上げは消えません）`)) return;
+        h.active = false;
+        save(); renderAll();
+      };
+      box.appendChild(row);
+    });
+    const archived = state.habits.filter(h => !h.active);
+    if (archived.length) {
+      const p = document.createElement('p');
+      p.className = 'small';
+      p.textContent = '外した習慣：';
+      archived.forEach(h => {
+        const b = document.createElement('button');
+        b.className = 'btn mini';
+        b.style.margin = '4px 4px 0 0';
+        b.textContent = `${h.emoji || ''} ${h.name} を戻す`;
+        b.onclick = () => { h.active = true; save(); renderAll(); };
+        p.appendChild(b);
+      });
+      box.appendChild(p);
+    }
+    const sel = $('dayStart');
+    if (!sel.options.length) {
+      for (let hr = 0; hr <= 6; hr++) sel.add(new Option(hr === 0 ? '0時（夜中の12時）' : `朝${hr}時`, hr));
+    }
+    sel.value = state.dayStart;
+  }
+
+  function renderAll() { renderHero(); renderToday(); renderRecord(); renderSettings(); }
+
+  // ===== 操作 =====
+  $('prevDay').onclick = () => { viewDay = addDays(viewDay, -1); renderToday(); };
+  $('nextDay').onclick = () => { if (viewDay < todayKey()) { viewDay = addDays(viewDay, 1); renderToday(); } };
+  $('prevMonth').onclick = () => { viewMonth.setMonth(viewMonth.getMonth() - 1); renderRecord(); };
+  $('nextMonth').onclick = () => { viewMonth.setMonth(viewMonth.getMonth() + 1); renderRecord(); };
+
+  $('addBtn').onclick = () => {
+    const name = $('newName').value.trim();
+    if (!name) { $('newName').focus(); return; }
+    state.habits.push({ id: uid(), emoji: $('newEmoji').value.trim() || '🌟', name, active: true });
+    $('newName').value = ''; $('newEmoji').value = '';
+    save(); renderAll();
+  };
+  $('newName').addEventListener('keydown', e => { if (e.key === 'Enter') $('addBtn').click(); });
+
+  $('dayStart').onchange = e => {
+    state.dayStart = Number(e.target.value);
+    viewDay = todayKey();
+    save(); renderAll();
+  };
+
+  $('exportBtn').onclick = () => {
+    const blob = new Blob([JSON.stringify(state, null, 1)], { type: 'application/json' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `hana-habit-${todayKey()}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  };
+  $('importBtn').onclick = () => $('importFile').click();
+  $('importFile').onchange = async e => {
+    const f = e.target.files[0];
+    if (!f) return;
+    try {
+      const s = JSON.parse(await f.text());
+      if (!s || !Array.isArray(s.habits) || typeof s.log !== 'object') throw 0;
+      if (!confirm('今の記録をバックアップの内容に置き換えます。よろしいですか？')) return;
+      state = { dayStart: 4, lastLevel: 0, ...s };
+      save(); viewDay = todayKey(); renderAll();
+      alert('復元しました');
+    } catch (err) {
+      alert('このファイルは読み込めませんでした');
+    } finally { e.target.value = ''; }
+  };
+
+  document.querySelectorAll('nav button').forEach(b => b.onclick = () => {
+    document.querySelectorAll('nav button').forEach(x => x.classList.toggle('active', x === b));
+    document.querySelectorAll('.screen').forEach(s => s.classList.toggle('active', s.id === b.dataset.tab));
+    window.scrollTo(0, 0);
+  });
+
+  // アプリを開き直したとき・日付が変わったときに「今日」を更新
+  let lastToday = todayKey();
+  const refreshDay = () => {
+    const tk = todayKey();
+    if (tk !== lastToday) { if (viewDay === lastToday) viewDay = tk; lastToday = tk; renderAll(); }
+  };
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) refreshDay(); });
+  setInterval(refreshDay, 60000);
+
+  renderAll();
+
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+</script>
+</body>
+</html>
