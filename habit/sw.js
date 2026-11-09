@@ -1,6 +1,6 @@
 // オフラインでも開けるようにする（ネットが使えるときは最新版を取得）
-const CACHE = 'jibun-level-v11';
-const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'photos/wake.jpg', 'photos/shower.jpg', 'photos/shrine.jpg', 'photos/breakfast.jpg'];
+const CACHE = 'jibun-level-v12';
+const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon-180.png', 'icon-192.png', 'icon-512.png', 'photos/wake.jpg', 'photos/shower.jpg', 'photos/shrine.jpg', 'photos/breakfast.jpg', 'photos/coffee.jpg'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(FILES)).then(() => self.skipWaiting()));
 });
