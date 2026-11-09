@@ -60,6 +60,19 @@
   }
 
   /* ===== Hero (level + identity) ===== */
+  /* ===== なりたい自分 ===== */
+  .vision-card {
+    margin-bottom: 12px; padding: 18px 18px 14px; position: relative; overflow: hidden;
+    background: linear-gradient(135deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #26231f));
+    color: #fff; border: 0;
+  }
+  .vision-card .lbl { font-size: 12px; font-weight: 700; letter-spacing: .1em; opacity: .85; }
+  .vision-card .txt { font-size: 18px; font-weight: 700; line-height: 1.65; margin-top: 6px; }
+  .vision-card .edit {
+    position: absolute; top: 12px; right: 12px; border: 0; background: rgba(255,255,255,.2);
+    color: #fff; font-size: 12px; padding: 4px 10px; border-radius: 99px;
+  }
+
   /* ===== 今日の言葉 ===== */
   .quote { margin-bottom: 12px; padding: 16px 18px 14px; border-left: 4px solid var(--accent); }
   .quote .lbl { font-size: 11px; font-weight: 700; color: var(--accent); letter-spacing: .1em; }
@@ -266,6 +279,7 @@
 <main>
   <!-- ========== 今日 ========== -->
   <section class="screen active" id="s-today">
+    <div class="card vision-card" id="visionCard"></div>
     <div class="card quote" id="quote"></div>
     <div class="card hero">
       <div class="ring">
@@ -346,7 +360,7 @@
     <h2>わたしが目指す姿</h2>
     <div class="card">
       <textarea id="vision" rows="3" placeholder="例：腹筋が割れていて、毎日ご飯を作って丁寧に暮らしている自分"></textarea>
-      <p class="small" style="margin-bottom:0">ここに書いたことは「今日」の画面の上に表示されます。</p>
+      <p class="small" style="margin-bottom:0">ここに書いたことは「今日」の画面のいちばん上に表示されます。</p>
     </div>
 
     <h2>習慣のリスト</h2>
@@ -538,7 +552,8 @@
     $('icon').textContent = s.emoji;
     $('lv').textContent = lvName(lv);
     $('title').textContent = s.title;
-    $('identity').textContent = state.vision.trim() ? `目指す姿：${state.vision.trim()}` : `わたしは「${s.id}」`;
+    $('identity').textContent = `わたしは「${s.id}」`;
+    renderVision();
     $('total').textContent = t;
     $('next').textContent = `あと${STEP - inLv}個で ${lvName(lv + 1)}「${stageAt(lv + 1).title}」`;
     $('ringBar').style.strokeDashoffset = 276.46 * (1 - inLv / STEP);
@@ -1005,6 +1020,23 @@
       box.appendChild(row);
     });
     if (document.activeElement !== $('newQuoteBy')) $('newQuoteBy').value = state.quoteBy || '';
+  }
+
+  function renderVision() {
+    // 案Aを最初の1回だけ自動で入れる（消した場合はそのまま）
+    if (!state.visionInit) {
+      state.visionInit = true;
+      if (!(state.vision || '').trim()) state.vision = PLAN_VISION;
+      save();
+    }
+    const v = (state.vision || '').trim();
+    $('visionCard').innerHTML = `<div class="lbl">🌅 なりたい自分</div>
+      <div class="txt">${v ? esc(v) : '設定の「わたしが目指す姿」に書くと、ここに表示されます。'}</div>
+      <button class="edit" id="visionEdit">編集</button>`;
+    $('visionEdit').onclick = () => {
+      document.querySelector('nav button[data-tab=s-settings]').click();
+      setTimeout(() => { $('vision').scrollIntoView({ block: 'center' }); $('vision').focus(); }, 50);
+    };
   }
 
   function renderAll() { renderQuote(); renderQuoteList(); renderHero(); renderToday(); renderRecord(); renderSettings(); }
