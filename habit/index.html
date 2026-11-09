@@ -190,6 +190,19 @@
   .row:last-child { border-bottom: 0; }
   .row .em { font-size: 22px; width: 30px; text-align: center; }
   .row .nm { flex: 1; min-width: 120px; }
+  .row .nm .dd { display: block; font-size: 11px; color: var(--muted); }
+  .days { flex-basis: 100%; display: flex; gap: 4px; padding-left: 38px; }
+  .days button {
+    flex: 1; padding: 6px 0; border-radius: 8px; border: 1px solid var(--line);
+    background: var(--bg); color: var(--muted); font-size: 13px;
+  }
+  .days button.on { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 700; }
+  .plan .step { border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-top: 10px; }
+  .plan .step.done { opacity: .55; }
+  .plan .step b { font-size: 15px; }
+  .plan .step ul { margin: 6px 0 10px; padding-left: 18px; font-size: 13px; }
+  .plan .step li { margin: 2px 0; }
+  .weekoff { text-align: center; color: var(--muted); font-size: 12px; margin-top: 6px; }
   .small { font-size: 12px; color: var(--muted); }
   .btn {
     border: 1px solid var(--line); background: var(--card); color: var(--ink);
@@ -304,6 +317,9 @@
 
   <!-- ========== 設定 ========== -->
   <section class="screen" id="s-settings">
+    <h2>レベルアッププラン</h2>
+    <div class="card plan" id="plan"></div>
+
     <h2>今日の言葉</h2>
     <div class="card">
       <textarea id="newQuote" rows="3" placeholder="好きな言葉を入力（改行で区切ると、まとめて何個でも登録できます）"></textarea>
@@ -538,7 +554,8 @@
 
     const done = new Set(state.log[viewDay] || []);
     // 今は使っていない習慣でも、その日に記録があれば表示する
-    const list = state.habits.filter(h => h.active || done.has(h.id));
+    const wd = fromKey(viewDay).getDay();
+    const list = state.habits.filter(h => (h.active && onDay(h, wd)) || done.has(h.id));
     const box = $('habitList');
     box.innerHTML = '';
     if (!list.length) box.innerHTML = '<div class="card small">設定タブから習慣を追加してください。</div>';
@@ -621,11 +638,12 @@
     cal.innerHTML = WD.map(x => `<div class="dow">${x}</div>`).join('');
     const first = new Date(y, m, 1).getDay();
     const days = new Date(y, m + 1, 0).getDate();
-    const max = Math.max(1, state.habits.filter(h => h.active).length);
     for (let i = 0; i < first; i++) cal.insertAdjacentHTML('beforeend', '<div class="d empty"></div>');
     for (let d = 1; d <= days; d++) {
       const k = keyOf(new Date(y, m, d));
       const n = countOn(k);
+      const wdN = new Date(y, m, d).getDay();
+      const max = Math.max(1, state.habits.filter(h => h.active && onDay(h, wdN)).length);
       const r = Math.min(1, n / max);
       const el = document.createElement('div');
       el.className = 'd' + (k === tk ? ' today' : '');
@@ -659,7 +677,83 @@
     return CAT_KEYS.map(k => `<option value="${k}" ${k === sel ? 'selected' : ''}>${CATS[k].emoji} ${CATS[k].name}</option>`).join('');
   }
 
+  // ===== 曜日 =====
+  const onDay = (h, wd) => !Array.isArray(h.days) || h.days.includes(wd);
+  const daysLabel = h => !Array.isArray(h.days) ? '毎日' : h.days.map(i => WD[i]).join('・') + 'だけ';
+
+  // ===== レベルアッププラン =====
+  const PLAN_VISION = '朝5時、朝日の中で自分と向き合い、鍛えた体と整った店で一日を始める。お酒やタバコに頼らず、自分で自分を満たせる、かっこいい大人。';
+  const PLAN_GOALS = {
+    body: 'がっちりした、かっこいい体になる',
+    link: '発信して、応援し合える仲間をつくる',
+    work: '整った店で、気持ちよく仕事を始める',
+    free: 'お酒に頼らず、自分で自分を満たせる',
+    hobby: '夜の家時間に楽しみをつくる',
+  };
+  // [絵文字, 名前, カテゴリー, 曜日(null=毎日)]
+  const PLAN = [
+    { title: 'ステップ1：朝の土台をつくる', when: '最初の2週間', habits: [
+      ['☀️', '5時に起きる', 'body', null],
+      ['🚶', '神社まで散歩', 'body', null],
+      ['⛩️', '朝日を見てお参り・なりたい自分を確認', 'free', null],
+      ['☕', 'コーヒーを淹れて一日の予定を確認', 'work', null],
+      ['🚿', '夜帰ったらまずシャワー', 'body', null],
+      ['📖', '夜、目指す姿と比べて一日を振り返る', 'free', null],
+    ] },
+    { title: 'ステップ2：朝を充実させる', when: '3〜4週目', habits: [
+      ['🏋️', '神社でスクワット10回', 'body', null],
+      ['📸', 'インスタに投稿', 'link', null],
+      ['🍳', '体にいい朝ごはん', 'body', null],
+      ['🧽', '7時に店で朝の掃除', 'work', [2, 3, 4, 5, 6]],
+      ['👕', '洗濯', 'free', [1, 4]],
+      ['🧹', '掃除機をかける', 'free', [2]],
+      ['🍽️', 'キッチン掃除', 'free', [3]],
+      ['🛁', 'お風呂掃除', 'free', [5]],
+      ['🎸', 'ウクレレを1曲弾く', 'hobby', null],
+    ] },
+    { title: 'ステップ3：夜を変える', when: '2ヶ月目〜', replace: ['ウクレレを1曲弾く'], habits: [
+      ['💪', '夜ジムに行く', 'body', null],
+      ['🥂', 'お酒の代わりに炭酸水で乾杯', 'free', null],
+      ['🍲', '夜ごはんを自炊', 'hobby', null],
+      ['🚭', 'タバコを1本減らす', 'body', null],
+      ['🎸', 'ウクレレ30分', 'hobby', null],
+    ] },
+  ];
+
+  function applyStep(i) {
+    const st = PLAN[i];
+    if (i === 0) {
+      if (!confirm('ステップ1を始めます。\n\n・目指す姿と5つの目標をプランの内容にします\n・今の習慣はいったん「外した習慣」に移します（積み上げは消えません）\n\nよろしいですか？')) return;
+      state.habits.forEach(h => { h.active = false; });
+      state.vision = PLAN_VISION;
+      state.goals = { ...PLAN_GOALS };
+    } else if (!confirm(`${st.title} の習慣を追加します。よろしいですか？`)) return;
+    (st.replace || []).forEach(name => state.habits.forEach(h => { if (h.name === name) h.active = false; }));
+    st.habits.forEach(([emoji, name, cat, days]) => {
+      const ex = state.habits.find(h => h.name === name);
+      if (ex) { Object.assign(ex, { emoji, cat, days, active: true }); return; }
+      state.habits.push({ id: uid(), emoji, name, cat, days, active: true });
+    });
+    state.planStep = Math.max(state.planStep || 0, i + 1);
+    save(); renderAll();
+    alert(`${st.title} を始めました！「今日」の画面を見てみてください。`);
+  }
+
+  function renderPlan() {
+    const cur = state.planStep || 0;
+    $('plan').innerHTML = `<p class="small" style="margin:0">一度に全部やらず、ステップごとに習慣を増やしていきます。今のステップに慣れたら、次のステップを始めましょう。</p>` +
+      PLAN.map((st, i) => `<div class="step ${i < cur ? 'done' : ''}">
+        <b>${i < cur ? '✅ ' : ''}${st.title}</b> <span class="small">${st.when}</span>
+        <ul>${st.habits.map(([e, n, c, d]) => `<li>${e} ${esc(n)}${d ? `（${d.map(x => WD[x]).join('・')}）` : ''}</li>`).join('')}</ul>
+        ${i === cur ? `<button class="btn primary" data-step="${i}">${i === 0 ? 'このプランで始める' : 'このステップを始める'}</button>`
+          : i < cur ? '<span class="small">始めました</span>' : '<span class="small">前のステップに慣れたら始めましょう</span>'}
+      </div>`).join('');
+    const b = $('plan').querySelector('[data-step]');
+    if (b) b.onclick = () => applyStep(Number(b.dataset.step));
+  }
+
   function renderSettings() {
+    renderPlan();
     if (document.activeElement !== $('vision')) $('vision').value = state.vision || '';
     const box = $('habitEdit');
     box.innerHTML = '';
@@ -668,11 +762,36 @@
     active.forEach(h => {
       const row = document.createElement('div');
       row.className = 'row';
-      row.innerHTML = `<span class="em">${esc(h.emoji || '・')}</span><span class="nm">${esc(h.name)}</span>
+      row.innerHTML = `<span class="em">${esc(h.emoji || '・')}</span><span class="nm">${esc(h.name)}<span class="dd">${daysLabel(h)}</span></span>
         <select class="cat">${catOptions(h.cat)}</select>
+        <button class="btn mini" data-a="days">曜日</button>
         <button class="btn mini" data-a="edit">編集</button>
         <button class="btn mini danger" data-a="del">外す</button>`;
       row.querySelector('select').onchange = e => { h.cat = e.target.value; save(); renderAll(); };
+      row.querySelector('[data-a=days]').onclick = () => {
+        const open = row.querySelector('.days');
+        if (open) { open.remove(); return; }
+        const box2 = document.createElement('div');
+        box2.className = 'days';
+        const paint = () => box2.querySelectorAll('button').forEach(b =>
+          b.classList.toggle('on', onDay(h, Number(b.dataset.d))));
+        WD.forEach((w, i) => {
+          const b = document.createElement('button');
+          b.textContent = w; b.dataset.d = i;
+          b.onclick = () => {
+            let ds = Array.isArray(h.days) ? [...h.days] : [0, 1, 2, 3, 4, 5, 6];
+            ds = ds.includes(i) ? ds.filter(x => x !== i) : [...ds, i].sort();
+            if (!ds.length) { alert('少なくとも1つの曜日を選んでください'); return; }
+            h.days = ds.length === 7 ? null : ds;
+            save(); paint();
+            row.querySelector('.dd').textContent = daysLabel(h);
+            renderToday(); renderRecord();
+          };
+          box2.appendChild(b);
+        });
+        paint();
+        row.appendChild(box2);
+      };
       row.querySelector('[data-a=edit]').onclick = () => {
         const name = prompt('習慣の名前', h.name);
         if (name === null || !name.trim()) return;
