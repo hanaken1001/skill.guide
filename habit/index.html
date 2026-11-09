@@ -154,6 +154,17 @@
   .habit:active { transform: scale(.98); }
   .habit .em { font-size: 24px; width: 30px; text-align: center; }
   .habit .nm { flex: 1; }
+  .habit .nm .lad { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
+  .ladder-box { flex-basis: 100%; padding: 8px 0 0 38px; }
+  .ladder-box ol { margin: 0 0 8px; padding-left: 18px; font-size: 13px; }
+  .ladder-box li.cur { font-weight: 800; color: var(--accent); }
+  .ladder-box li.past { color: var(--muted); text-decoration: line-through; }
+  .ladder-box .btns { margin-top: 0; }
+  .toast {
+    position: fixed; left: 50%; bottom: calc(90px + env(safe-area-inset-bottom)); transform: translateX(-50%);
+    background: #26231f; color: #fff; padding: 12px 18px; border-radius: 14px; font-size: 14px; z-index: 12;
+    max-width: 90vw; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,.25); animation: rise .3s;
+  }
   .habit .ck {
     width: 28px; height: 28px; border-radius: 50%; border: 2px solid var(--line);
     display: flex; align-items: center; justify-content: center; font-size: 16px; color: #fff;
@@ -604,7 +615,7 @@
         const b = document.createElement('button');
         b.className = 'habit' + (done.has(h.id) ? ' done' : '');
         b.style.setProperty('--c', CATS[k].color);
-        b.innerHTML = `<span class="em">${esc(h.emoji || '・')}</span><span class="nm">${esc(h.name)}</span><span class="ck">${done.has(h.id) ? '✓' : ''}</span>`;
+        b.innerHTML = `<span class="em">${esc(h.emoji || '・')}</span><span class="nm">${esc(curName(h))}${ladderNote(h)}</span><span class="ck">${done.has(h.id) ? '✓' : ''}</span>`;
         b.onclick = () => toggle(h.id);
         g.appendChild(b);
       });
@@ -627,10 +638,40 @@
     if (navigator.vibrate) navigator.vibrate(10);
     const levelUp = after > before && after > (state.lastLevel || 0);
     if (levelUp) state.lastLevel = after;
+    const h = habitById(id);
+    let stepUp = null;
+    if (i < 0 && h && hasLadder(h) && h.rung < h.ladder.length - 1 && rungCount(h) >= LADDER_N) {
+      h.rung++;
+      h.rungStart = addDays(todayKey(), 1);
+      stepUp = h;
+    }
     save();
     renderAll();
+    if (stepUp) toast(`🎉 ${LADDER_N}回達成！明日から「${curName(stepUp)}」にステップアップ`);
     if (levelUp) celebrate(after);
     else if (i < 0) { const f = $('icon'); f.classList.remove('pop'); void f.offsetWidth; f.classList.add('pop'); }
+  }
+
+  // ===== ステップ式の習慣（だんだん目標に近づける） =====
+  const LADDER_N = 5; // この回数できたら次の段階へ
+  const hasLadder = h => Array.isArray(h.ladder) && h.ladder.length > 1;
+  const curName = h => hasLadder(h) ? h.ladder[Math.min(h.rung || 0, h.ladder.length - 1)] : h.name;
+  function rungCount(h) {
+    const from = h.rungStart || '0000-00-00';
+    return Object.keys(state.log).filter(k => k >= from && state.log[k].includes(h.id)).length;
+  }
+  function ladderNote(h) {
+    if (!hasLadder(h)) return '';
+    const n = h.ladder.length, r = Math.min(h.rung || 0, n - 1);
+    if (r >= n - 1) return `<span class="lad">🏁 目標の段階（${n}/${n}）</span>`;
+    const left = Math.max(0, LADDER_N - rungCount(h));
+    return `<span class="lad">段階 ${r + 1}/${n} ・ あと${left}回で「${esc(h.ladder[r + 1])}」</span>`;
+  }
+  function toast(msg) {
+    const t = document.createElement('div');
+    t.className = 'toast'; t.textContent = msg;
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3500);
   }
 
   function celebrate(lv) {
@@ -822,18 +863,65 @@
     free: 'お酒に頼らず、自分で自分を満たせる',
     hobby: '夜の家時間に楽しみをつくる',
   };
-  // [絵文字, 名前, カテゴリー, 曜日(null=毎日)]
+  // 段階（最後が目標）。最初の段階から始めて、5回できるごとに1つ上がる
+  const LADDERS = {
+    '神社まで散歩': ['外に出て朝の空気を吸う', '家の周りを10分歩く', '20分散歩', '神社まで散歩'],
+    '神社でスクワット50回': ['神社でスクワット5回', '神社でスクワット10回', '神社でスクワット20回', '神社でスクワット30回', '神社でスクワット50回'],
+    '体にいい朝ごはん': ['朝にスムージーか果物', '体にいい朝ごはん', 'ホテルのような朝ごはん'],
+    'ウクレレ30分': ['ウクレレを1曲弾く', 'ウクレレ10分', 'ウクレレ20分', 'ウクレレ30分'],
+    'ジムで60分': ['家で腕立て・腹筋5分', 'ジムで20分', 'ジムで40分', 'ジムで60分'],
+    'お酒の代わりに炭酸水で乾杯': ['飲む前に炭酸水を1杯', '1杯目は炭酸水で乾杯', 'お酒の代わりに炭酸水で乾杯'],
+    '今日はタバコを吸わない': ['タバコを1本減らす', 'タバコを3本減らす', 'タバコを半分にする', '今日はタバコを吸わない'],
+    '夜ごはんを自炊': ['夜ごはんに1品だけ作る', '夜ごはんを自炊'],
+  };
+  // 以前の名前 → [新しい目標の名前, 始める段階]
+  const LADDER_MIGRATE = {
+    '神社まで散歩': ['神社まで散歩', 0],
+    '神社でスクワット10回': ['神社でスクワット50回', 1],
+    '体にいい朝ごはん': ['体にいい朝ごはん', 0],
+    'ウクレレを1曲弾く': ['ウクレレ30分', 0],
+    'ウクレレ30分': ['ウクレレ30分', 3],
+    '夜ジムに行く': ['ジムで60分', 0],
+    'お酒の代わりに炭酸水で乾杯': ['お酒の代わりに炭酸水で乾杯', 0],
+    'タバコを1本減らす': ['今日はタバコを吸わない', 0],
+    '夜ごはんを自炊': ['夜ごはんを自炊', 0],
+  };
+  function migrateLadders() {
+    if (!state.showerInit) {
+      state.showerInit = true;
+      const old = state.habits.find(h => h.name === '夜帰ったらまずシャワー' && h.active);
+      if (old && !state.habits.some(h => h.name === '10時半にシャワーを浴びて、そのまま布団に入る')) {
+        old.name = '10時半にシャワーを浴びて、そのまま布団に入る';
+        old.emoji = '🚿';
+      }
+      save();
+    }
+    if (state.ladderInit) return;
+    state.ladderInit = true;
+    let hit = false;
+    state.habits.forEach(h => {
+      const m = LADDER_MIGRATE[h.name];
+      if (!m || hasLadder(h)) return;
+      if (state.habits.some(o => o !== h && o.name === m[0] && o.active)) return;
+      h.name = m[0]; h.ladder = [...LADDERS[m[0]]]; h.rung = m[1]; h.rungStart = todayKey();
+      hit = true;
+    });
+    save();
+    if (hit) setTimeout(() => toast('一部の習慣を「ステップ式」にしました。少しずつ目標に近づけます'), 600);
+  }
+
+  // [絵文字, 目標の名前, カテゴリー, 曜日(null=毎日)]  ※LADDERSにあれば段階つき
   const PLAN = [
     { title: 'ステップ1：朝の土台をつくる', when: '最初の2週間', habits: [
       ['☀️', '5時に起きる', 'body', null],
       ['🚶', '神社まで散歩', 'body', null],
       ['⛩️', '朝日を見てお参り・なりたい自分を確認', 'free', null],
       ['☕', 'コーヒーを淹れて一日の予定を確認', 'work', null],
-      ['🚿', '夜帰ったらまずシャワー', 'body', null],
+      ['🚿', '10時半にシャワーを浴びて、そのまま布団に入る', 'body', null],
       ['📖', '夜、目指す姿と比べて一日を振り返る', 'free', null],
     ] },
     { title: 'ステップ2：朝を充実させる', when: '3〜4週目', habits: [
-      ['🏋️', '神社でスクワット10回', 'body', null],
+      ['🏋️', '神社でスクワット50回', 'body', null],
       ['📸', 'インスタに投稿', 'link', null],
       ['🍳', '体にいい朝ごはん', 'body', null],
       ['🧽', '仕事を始める前に店の朝掃除', 'work', [2, 3, 4, 5, 6]],
@@ -841,14 +929,13 @@
       ['🧹', '掃除機をかける', 'free', [2]],
       ['🍽️', 'キッチン掃除', 'free', [3]],
       ['🛁', 'お風呂掃除', 'free', [5]],
-      ['🎸', 'ウクレレを1曲弾く', 'hobby', null],
+      ['🎸', 'ウクレレ30分', 'hobby', null],
     ] },
-    { title: 'ステップ3：夜を変える', when: '2ヶ月目〜', replace: ['ウクレレを1曲弾く'], habits: [
-      ['💪', '夜ジムに行く', 'body', null],
+    { title: 'ステップ3：夜を変える', when: '2ヶ月目〜', habits: [
+      ['💪', 'ジムで60分', 'body', null],
       ['🥂', 'お酒の代わりに炭酸水で乾杯', 'free', null],
       ['🍲', '夜ごはんを自炊', 'hobby', null],
-      ['🚭', 'タバコを1本減らす', 'body', null],
-      ['🎸', 'ウクレレ30分', 'hobby', null],
+      ['🚭', '今日はタバコを吸わない', 'body', null],
     ] },
   ];
 
@@ -864,7 +951,9 @@
     st.habits.forEach(([emoji, name, cat, days]) => {
       const ex = state.habits.find(h => h.name === name);
       if (ex) { Object.assign(ex, { emoji, cat, days, active: true }); return; }
-      state.habits.push({ id: uid(), emoji, name, cat, days, active: true });
+      const h = { id: uid(), emoji, name, cat, days, active: true };
+      if (LADDERS[name]) Object.assign(h, { ladder: [...LADDERS[name]], rung: 0, rungStart: todayKey() });
+      state.habits.push(h);
     });
     state.planStep = Math.max(state.planStep || 0, i + 1);
     save(); renderAll();
@@ -876,7 +965,8 @@
     $('plan').innerHTML = `<p class="small" style="margin:0">一度に全部やらず、ステップごとに習慣を増やしていきます。今のステップに慣れたら、次のステップを始めましょう。</p>` +
       PLAN.map((st, i) => `<div class="step ${i < cur ? 'done' : ''}">
         <b>${i < cur ? '✅ ' : ''}${st.title}</b> <span class="small">${st.when}</span>
-        <ul>${st.habits.map(([e, n, c, d]) => `<li>${e} ${esc(n)}${d ? `（${d.map(x => WD[x]).join('・')}）` : ''}</li>`).join('')}</ul>
+        <ul>${st.habits.map(([e, n, c, d]) => `<li>${e} ${LADDERS[n] ? `${esc(LADDERS[n][0])} → ${esc(n)}` : esc(n)}${d ? `（${d.map(x => WD[x]).join('・')}）` : ''}</li>`).join('')}</ul>
+        ${i === 0 ? `<p class="small" style="margin-top:0">「→」がついた習慣は、${LADDER_N}回できるごとに自動で1段階ずつレベルアップします。</p>` : ''}
         ${i === cur ? `<button class="btn primary" data-step="${i}">${i === 0 ? 'このプランで始める' : 'このステップを始める'}</button>`
           : i < cur ? '<span class="small">始めました</span>' : '<span class="small">前のステップに慣れたら始めましょう</span>'}
       </div>`).join('');
@@ -894,9 +984,10 @@
     active.forEach(h => {
       const row = document.createElement('div');
       row.className = 'row';
-      row.innerHTML = `<span class="em">${esc(h.emoji || '・')}</span><span class="nm">${esc(h.name)}<span class="dd">${daysLabel(h)}</span></span>
+      row.innerHTML = `<span class="em">${esc(h.emoji || '・')}</span><span class="nm">${esc(curName(h))}<span class="dd">${daysLabel(h)}${hasLadder(h) ? ` ・ 段階 ${Math.min(h.rung || 0, h.ladder.length - 1) + 1}/${h.ladder.length}` : ''}</span></span>
         <select class="cat">${catOptions(h.cat)}</select>
         <button class="btn mini" data-a="days">曜日</button>
+        <button class="btn mini" data-a="ladder">段階</button>
         <button class="btn mini" data-a="edit">編集</button>
         <button class="btn mini danger" data-a="del">外す</button>`;
       row.querySelector('select').onchange = e => { h.cat = e.target.value; save(); renderAll(); };
@@ -924,7 +1015,44 @@
         paint();
         row.appendChild(box2);
       };
+      row.querySelector('[data-a=ladder]').onclick = () => {
+        const open = row.querySelector('.ladder-box');
+        if (open) { open.remove(); return; }
+        const lb = document.createElement('div');
+        lb.className = 'ladder-box';
+        const r = h.rung || 0;
+        lb.innerHTML = hasLadder(h)
+          ? `<ol>${h.ladder.map((t, i) => `<li class="${i === r ? 'cur' : i < r ? 'past' : ''}">${esc(t)}</li>`).join('')}</ol>
+             <div class="btns">
+               <button class="btn mini" data-l="down" ${r <= 0 ? 'disabled' : ''}>◀ 1つ戻す</button>
+               <button class="btn mini" data-l="up" ${r >= h.ladder.length - 1 ? 'disabled' : ''}>1つ進める ▶</button>
+               <button class="btn mini" data-l="edit">段階を編集</button>
+             </div>
+             <p class="small">${LADDER_N}回できると自動で次に進みます。きつい時は「1つ戻す」でOK。</p>`
+          : `<p class="small" style="margin-top:0">「少しずつレベルアップする」習慣にできます。</p>
+             <div class="btns"><button class="btn mini primary" data-l="edit">段階をつくる</button></div>`;
+        const move = d => { h.rung = Math.max(0, Math.min(h.ladder.length - 1, r + d)); h.rungStart = todayKey(); save(); renderAll(); };
+        lb.querySelectorAll('[data-l]').forEach(b => b.onclick = () => {
+          if (b.dataset.l === 'down') return move(-1);
+          if (b.dataset.l === 'up') return move(1);
+          const base = hasLadder(h) ? h.ladder : (LADDERS[h.name] || [h.name]);
+          const txt = prompt('段階を「/」で区切って、簡単な順に入力してください（最後が目標）\n例：スクワット5回/スクワット10回/スクワット20回', base.join('/'));
+          if (txt === null) return;
+          const steps = txt.split(/[\/／→]/).map(t => t.trim()).filter(Boolean);
+          if (steps.length < 2) {
+            delete h.ladder; delete h.rung; delete h.rungStart;
+            if (steps[0]) h.name = steps[0];
+          } else {
+            const keep = hasLadder(h) ? h.ladder[h.rung || 0] : null;
+            h.ladder = steps; h.name = steps[steps.length - 1];
+            h.rung = Math.max(0, keep ? steps.indexOf(keep) : 0); h.rungStart = todayKey();
+          }
+          save(); renderAll();
+        });
+        row.appendChild(lb);
+      };
       row.querySelector('[data-a=edit]').onclick = () => {
+        if (hasLadder(h)) { row.querySelector('[data-a=ladder]').click(); return alert('段階つきの習慣は「段階を編集」から名前を変えられます'); }
         const name = prompt('習慣の名前', h.name);
         if (name === null || !name.trim()) return;
         const emoji = prompt('絵文字（空欄でもOK）', h.emoji || '');
@@ -948,7 +1076,7 @@
         const b = document.createElement('button');
         b.className = 'btn mini';
         b.style.margin = '4px 4px 0 0';
-        b.textContent = `${h.emoji || ''} ${h.name} を戻す`;
+        b.textContent = `${h.emoji || ''} ${curName(h)} を戻す`;
         b.onclick = () => { h.active = true; save(); renderAll(); };
         p.appendChild(b);
       });
@@ -1039,7 +1167,8 @@
     };
   }
 
-  function renderAll() { renderQuote(); renderQuoteList(); renderHero(); renderToday(); renderRecord(); renderSettings(); }
+  function renderAll() {
+    migrateLadders(); renderQuote(); renderQuoteList(); renderHero(); renderToday(); renderRecord(); renderSettings(); }
 
   // ===== 操作 =====
   $('prevDay').onclick = () => { viewDay = addDays(viewDay, -1); renderToday(); };
