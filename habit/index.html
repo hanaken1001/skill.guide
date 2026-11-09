@@ -152,7 +152,9 @@
     transition: background .2s, border-color .2s, transform .1s;
   }
   .habit:active { transform: scale(.98); }
-  .habit .em { font-size: 24px; width: 30px; text-align: center; }
+  .habit .em { font-size: 24px; width: 48px; text-align: center; flex: none; }
+  .habit .ph { width: 48px; height: 48px; border-radius: 12px; object-fit: cover; flex: none; margin: -6px 0; }
+  .row .ph { width: 34px; height: 34px; border-radius: 9px; object-fit: cover; flex: none; }
   .habit .nm { flex: 1; }
   .habit .nm .lad { display: block; font-size: 11px; color: var(--muted); margin-top: 1px; }
   .ladder-box { flex-basis: 100%; padding: 8px 0 0 38px; }
@@ -615,7 +617,7 @@
         const b = document.createElement('button');
         b.className = 'habit' + (done.has(h.id) ? ' done' : '');
         b.style.setProperty('--c', CATS[k].color);
-        b.innerHTML = `<span class="em">${esc(h.emoji || '・')}</span><span class="nm">${esc(curName(h))}${ladderNote(h)}</span><span class="ck">${done.has(h.id) ? '✓' : ''}</span>`;
+        b.innerHTML = `${iconHtml(h)}<span class="nm">${esc(curName(h))}${ladderNote(h)}</span><span class="ck">${done.has(h.id) ? '✓' : ''}</span>`;
         b.onclick = () => toggle(h.id);
         g.appendChild(b);
       });
@@ -656,6 +658,39 @@
   const LADDER_N = 5; // この回数できたら次の段階へ
   const hasLadder = h => Array.isArray(h.ladder) && h.ladder.length > 1;
   const curName = h => hasLadder(h) ? h.ladder[Math.min(h.rung || 0, h.ladder.length - 1)] : h.name;
+
+  // 習慣の横に出す写真。自分で選んだ写真（h.photo）が先、なければ名前の言葉で決まった写真
+  const PHOTOS = [
+    ['起きる', 'photos/wake.jpg'],
+    ['シャワー', 'photos/shower.jpg'],
+    ['スクワット', 'photos/shrine.jpg'],
+    ['朝ごはん', 'photos/breakfast.jpg'],
+  ];
+  const photoOf = h => h.photo || (PHOTOS.find(([w]) => (h.name || '').includes(w)) || [])[1] || '';
+  const iconHtml = h => {
+    const p = photoOf(h);
+    return p ? `<img class="ph" src="${esc(p)}" alt="">` : `<span class="em">${esc(h.emoji || '・')}</span>`;
+  };
+  // 選んだ写真を小さな正方形にしてスマホの中に保存する（外には送らない）
+  const pickPhoto = h => {
+    const inp = document.createElement('input');
+    inp.type = 'file'; inp.accept = 'image/*';
+    inp.onchange = () => {
+      const f = inp.files && inp.files[0];
+      if (!f) return;
+      const img = new Image();
+      img.onload = () => {
+        const n = 200, s = Math.min(img.width, img.height);
+        const c = document.createElement('canvas'); c.width = c.height = n;
+        c.getContext('2d').drawImage(img, (img.width - s) / 2, (img.height - s) / 2, s, s, 0, 0, n, n);
+        h.photo = c.toDataURL('image/jpeg', 0.75);
+        URL.revokeObjectURL(img.src);
+        save(); renderAll();
+      };
+      img.src = URL.createObjectURL(f);
+    };
+    inp.click();
+  };
   function rungCount(h) {
     const from = h.rungStart || '0000-00-00';
     return Object.keys(state.log).filter(k => k >= from && state.log[k].includes(h.id)).length;
@@ -984,12 +1019,19 @@
     active.forEach(h => {
       const row = document.createElement('div');
       row.className = 'row';
-      row.innerHTML = `<span class="em">${esc(h.emoji || '・')}</span><span class="nm">${esc(curName(h))}<span class="dd">${daysLabel(h)}${hasLadder(h) ? ` ・ 段階 ${Math.min(h.rung || 0, h.ladder.length - 1) + 1}/${h.ladder.length}` : ''}</span></span>
+      row.innerHTML = `${iconHtml(h)}<span class="nm">${esc(curName(h))}<span class="dd">${daysLabel(h)}${hasLadder(h) ? ` ・ 段階 ${Math.min(h.rung || 0, h.ladder.length - 1) + 1}/${h.ladder.length}` : ''}</span></span>
         <select class="cat">${catOptions(h.cat)}</select>
         <button class="btn mini" data-a="days">曜日</button>
         <button class="btn mini" data-a="ladder">段階</button>
         <button class="btn mini" data-a="edit">編集</button>
+        <button class="btn mini" data-a="photo">写真</button>
         <button class="btn mini danger" data-a="del">外す</button>`;
+      row.querySelector('[data-a=photo]').onclick = () => {
+        if (h.photo && confirm('自分で選んだ写真を外しますか？\n（キャンセルで別の写真を選びます）')) {
+          delete h.photo; save(); renderAll(); return;
+        }
+        pickPhoto(h);
+      };
       row.querySelector('select').onchange = e => { h.cat = e.target.value; save(); renderAll(); };
       row.querySelector('[data-a=days]').onclick = () => {
         const open = row.querySelector('.days');
