@@ -253,6 +253,11 @@
   .modal h3 { margin: 2px 0 8px; font-size: 22px; }
   .modal p { margin: 0 0 6px; font-size: 15px; }
   .modal .sub { color: var(--muted); font-size: 13px; margin-bottom: 18px; }
+  .share-open { margin-top: 14px; width: 100%; }
+  .share-modal { max-width: 380px; padding: 18px; }
+  .share-modal img { width: 100%; border-radius: 14px; display: block; box-shadow: var(--shadow); }
+  .share-modal .btns { justify-content: center; margin-top: 14px; }
+  .share-modal .small { margin: 10px 0 0; }
   .spark { position: fixed; top: -40px; font-size: 24px; z-index: 11; pointer-events: none; animation: fall linear forwards; }
   @keyframes fall { to { transform: translateY(110vh) rotate(540deg); opacity: .2; } }
 </style>
@@ -277,6 +282,7 @@
       <div class="total">これまでの積み上げ <b id="total">0</b> 個</div>
       <div class="next" id="next"></div>
       <div class="pillars" id="pillars"></div>
+      <button class="btn share-open" id="shareOpen">📤 進捗をシェア</button>
     </div>
 
     <div class="card goals" id="goals"></div>
@@ -384,6 +390,17 @@
   <button data-tab="s-record"><span class="i">📈</span>記録</button>
   <button data-tab="s-settings"><span class="i">⚙️</span>設定</button>
 </nav>
+
+<div class="overlay" id="shareBox">
+  <div class="modal share-modal">
+    <img id="shareImg" alt="進捗カード">
+    <p class="small">習慣の中身や目標の文章は載りません。</p>
+    <div class="btns">
+      <button class="btn" id="shareClose">閉じる</button>
+      <button class="btn primary" id="shareSend">送る・保存する</button>
+    </div>
+  </div>
+</div>
 
 <div class="overlay" id="levelUp">
   <div class="modal">
@@ -622,6 +639,106 @@
     }
   }
   $('luClose').onclick = () => $('levelUp').classList.remove('show');
+
+  // ===== 進捗シェア（カード画像） =====
+  const cssVar = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  function roundRect(ctx, x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x + r, y); ctx.arcTo(x + w, y, x + w, y + h, r); ctx.arcTo(x + w, y + h, x, y + h, r);
+    ctx.arcTo(x, y + h, x, y, r); ctx.arcTo(x, y, x + w, y, r); ctx.closePath();
+  }
+  // 日本語を1文字ずつ折り返す
+  function wrapText(ctx, text, maxW) {
+    const lines = []; let line = '';
+    for (const ch of text) {
+      if (ctx.measureText(line + ch).width > maxW && line) { lines.push(line); line = ch; } else line += ch;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
+  function drawCard() {
+    const W = 1080, H = 1440;
+    const c = document.createElement('canvas'); c.width = W; c.height = H;
+    const x = c.getContext('2d');
+    const F = '"Hiragino Sans","Hiragino Kaku Gothic ProN","Noto Sans JP",sans-serif';
+    const t = total(), lv = Math.floor(t / STEP), st = stageAt(lv), col = st.color;
+    let week = 0; const tk = todayKey();
+    for (let i = 0; i < 7; i++) week += countOn(addDays(tk, -i));
+    const ct = catTotals();
+
+    // 背景
+    const g = x.createLinearGradient(0, 0, W, H);
+    g.addColorStop(0, col); g.addColorStop(1, '#26231f');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    x.fillStyle = '#ffffff'; roundRect(x, 60, 60, W - 120, H - 120, 48); x.fill();
+
+    x.textBaseline = 'alphabetic';
+    x.fillStyle = '#857e75'; x.font = `600 32px ${F}`; x.textAlign = 'left';
+    x.fillText('じぶんレベル', 120, 150);
+    const d = fromKey(tk); x.textAlign = 'right';
+    x.fillText(`${d.getFullYear()}.${d.getMonth() + 1}.${d.getDate()}`, W - 120, 150);
+
+    // アイコン
+    x.textAlign = 'center';
+    x.fillStyle = col + '22'; x.beginPath(); x.arc(W / 2, 330, 130, 0, Math.PI * 2); x.fill();
+    x.strokeStyle = '#e9e4dc'; x.lineWidth = 16; x.beginPath(); x.arc(W / 2, 330, 150, 0, Math.PI * 2); x.stroke();
+    x.strokeStyle = col; x.lineCap = 'round'; x.beginPath();
+    x.arc(W / 2, 330, 150, -Math.PI / 2, -Math.PI / 2 + Math.PI * 2 * ((t % STEP) / STEP || 0.001)); x.stroke();
+    x.font = `150px ${F}`; x.fillStyle = '#000'; x.fillText(st.emoji, W / 2, 385);
+
+    // レベルと肩書き
+    x.fillStyle = col; roundRect(x, W / 2 - 90, 510, 180, 60, 30); x.fill();
+    x.fillStyle = '#fff'; x.font = `800 36px ${F}`; x.fillText(lvName(lv), W / 2, 553);
+    x.fillStyle = col; x.font = `800 68px ${F}`; x.fillText(st.title, W / 2, 650);
+    x.fillStyle = '#26231f'; x.font = `500 32px ${F}`;
+    wrapText(x, `わたしは「${st.id}」`, W - 200).forEach((l, i) => x.fillText(l, W / 2, 712 + i * 44));
+
+    // 数字
+    const box = (bx, label, val) => {
+      x.fillStyle = '#f6f4f0'; roundRect(x, bx, 800, 400, 150, 28); x.fill();
+      x.fillStyle = '#857e75'; x.font = `600 30px ${F}`; x.fillText(label, bx + 200, 850);
+      x.fillStyle = '#26231f'; x.font = `800 64px ${F}`; x.fillText(`${val}`, bx + 200, 922);
+    };
+    box(120, '積み上げ合計', `${t}個`);
+    box(W - 520, 'この7日間', `${week}個`);
+
+    // カテゴリー別
+    const mx = Math.max(1, ...Object.values(ct));
+    CAT_KEYS.forEach((k, i) => {
+      const y = 1010 + i * 56;
+      const cc = cssVar(CATS[k].color.slice(4, -1)) || col;
+      x.textAlign = 'left'; x.fillStyle = '#26231f'; x.font = `600 30px ${F}`;
+      x.fillText(`${CATS[k].emoji} ${CATS[k].name}`, 120, y + 28);
+      x.fillStyle = '#e9e4dc'; roundRect(x, 400, y + 6, 440, 26, 13); x.fill();
+      if (ct[k]) { x.fillStyle = cc; roundRect(x, 400, y + 6, Math.max(26, 440 * ct[k] / mx), 26, 13); x.fill(); }
+      x.textAlign = 'right'; x.fillStyle = '#26231f'; x.font = `800 32px ${F}`;
+      x.fillText(`${ct[k]}`, W - 120, y + 30);
+    });
+
+    x.textAlign = 'center'; x.fillStyle = '#857e75'; x.font = `500 28px ${F}`;
+    x.fillText('毎日の小さな積み上げで、なりたい自分へ', W / 2, H - 115);
+    return c;
+  }
+
+  let shareFile = null;
+  $('shareOpen').onclick = () => {
+    const c = drawCard();
+    $('shareImg').src = c.toDataURL('image/png');
+    shareFile = null;
+    // 「送る」を押したときにすぐ共有できるよう、先に画像ファイルを作っておく
+    c.toBlob(b => { shareFile = new File([b], `jibun-level-${todayKey()}.png`, { type: 'image/png' }); }, 'image/png');
+    $('shareBox').classList.add('show');
+  };
+  $('shareClose').onclick = () => $('shareBox').classList.remove('show');
+  $('shareSend').onclick = async () => {
+    if (shareFile && navigator.canShare && navigator.canShare({ files: [shareFile] })) {
+      try { await navigator.share({ files: [shareFile] }); } catch (e) { /* キャンセル */ }
+      return;
+    }
+    const a = document.createElement('a');
+    a.href = $('shareImg').src; a.download = `jibun-level-${todayKey()}.png`;
+    document.body.appendChild(a); a.click(); a.remove();
+  };
 
   function renderRecord() {
     const t = total();
